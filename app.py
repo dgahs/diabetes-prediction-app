@@ -33,9 +33,7 @@ def init_db():
                     glucose REAL,   
                     bloodpressure REAL,   
                     skinthickness REAL,   
-                    insulin REAL,   3
-                  
-                  
+                    insulin REAL,   
                     bmi REAL,   
                     dpf REAL,   
                     age INTEGER,   
