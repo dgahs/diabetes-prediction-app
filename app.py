@@ -9,10 +9,15 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 import matplotlib
+import matplotlib.font_manager as fm
 
-# 设置 matplotlib 支持英文字体，避免中文显示问题
-matplotlib.rcParams['font.sans-serif'] = ['DejaVu Sans']  # 服务器上可用的字体
+# 设置 matplotlib 支持中文字体
+# 尝试多种可能的字体，从而增加兼容性
+matplotlib.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'WenQuanYi Micro Hei', 'DejaVu Sans', 'Arial Unicode MS']
 matplotlib.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
+
+# 禁用matplotlib的全局警告
+st.set_option('deprecation.showPyplotGlobalUse', False)
 
 # 创建数据库连接和表
 def init_db():
@@ -414,12 +419,12 @@ def app():
                             # 确保两组都有数据
                             if len(diabetic_data) > 0 and len(normal_data) > 0:
                                 # 直方图
-                                ax.hist(diabetic_data, alpha=0.5, label='Diabetic', bins=15, color='#ff9999')
-                                ax.hist(normal_data, alpha=0.5, label='Normal', bins=15, color='#66b3ff')
+                                ax.hist(diabetic_data, alpha=0.5, label='糖尿病患者', bins=15, color='#ff9999')
+                                ax.hist(normal_data, alpha=0.5, label='正常人群', bins=15, color='#66b3ff')
                                 
                                 ax.set_xlabel(feature_names[feature_idx])
-                                ax.set_ylabel('Frequency')
-                                ax.set_title(f'{feature_names[feature_idx]} Distribution')
+                                ax.set_ylabel('频率')
+                                ax.set_title(f'{feature_names[feature_idx]} 分布情况')
                                 ax.legend()
                                 
                                 st.pyplot(fig)
@@ -457,26 +462,48 @@ def app():
                             # 计算相关性矩阵
                             corr_matrix = numeric_data.corr()
                             
+                            # 为相关性矩阵中的列和行重新指定中文名称
+                            feature_names_map = {
+                                "pregnancies": "怀孕次数", 
+                                "glucose": "血糖", 
+                                "bloodpressure": "血压", 
+                                "skinthickness": "皮肤厚度",
+                                "insulin": "胰岛素", 
+                                "bmi": "BMI", 
+                                "dpf": "糖尿病家族史", 
+                                "age": "年龄", 
+                                "prediction": "预测结果"
+                            }
+                            
+                            # 映射现有列名到中文名称
+                            corr_matrix_cn = corr_matrix.copy()
+                            new_cols = []
+                            for col in corr_matrix.columns:
+                                new_cols.append(feature_names_map.get(col, col))
+                            
+                            corr_matrix_cn.columns = new_cols
+                            corr_matrix_cn.index = new_cols
+                            
                             # 显示热力图
                             fig, ax = plt.subplots(figsize=(10, 8))
-                            im = ax.imshow(corr_matrix, cmap='coolwarm')
+                            im = ax.imshow(corr_matrix_cn, cmap='coolwarm')
                             
                             # 添加每个单元格的数值
-                            for i in range(len(corr_matrix.columns)):
-                                for j in range(len(corr_matrix.index)):
-                                    text = ax.text(j, i, round(corr_matrix.iloc[i, j], 2),
+                            for i in range(len(corr_matrix_cn.columns)):
+                                for j in range(len(corr_matrix_cn.index)):
+                                    text = ax.text(j, i, round(corr_matrix_cn.iloc[i, j], 2),
                                                 ha="center", va="center", color="black")
                             
                             # 设置坐标轴
-                            ax.set_xticks(np.arange(len(corr_matrix.columns)))
-                            ax.set_yticks(np.arange(len(corr_matrix.index)))
-                            ax.set_xticklabels(corr_matrix.columns)
-                            ax.set_yticklabels(corr_matrix.index)
+                            ax.set_xticks(np.arange(len(corr_matrix_cn.columns)))
+                            ax.set_yticks(np.arange(len(corr_matrix_cn.index)))
+                            ax.set_xticklabels(corr_matrix_cn.columns)
+                            ax.set_yticklabels(corr_matrix_cn.index)
                             
                             # 旋转 x 轴标签
                             plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
                             
-                            ax.set_title("Feature Correlation Heatmap")
+                            ax.set_title("特征相关性热力图")
                             fig.colorbar(im)
                             fig.tight_layout()
                             
@@ -514,6 +541,20 @@ def app():
                                 
                                 # 创建柱状图
                                 features = [col for col in db_means.columns if col != 'prediction']
+                                
+                                # 为x轴创建中文标签
+                                feature_names_map = {
+                                    "pregnancies": "怀孕次数", 
+                                    "glucose": "血糖", 
+                                    "bloodpressure": "血压", 
+                                    "skinthickness": "皮肤厚度",
+                                    "insulin": "胰岛素", 
+                                    "bmi": "BMI", 
+                                    "dpf": "糖尿病家族史", 
+                                    "age": "年龄"
+                                }
+                                feature_labels = [feature_names_map.get(col, col) for col in features]
+                                
                                 x = np.arange(len(features))  # 特征位置
                                 width = 0.35  # 柱的宽度
                                 
@@ -522,13 +563,13 @@ def app():
                                     normal_values = db_means.loc[0].values
                                     diabetic_values = db_means.loc[1].values
                                     
-                                    normal = ax.bar(x - width/2, normal_values, width, label='Normal', color='#66b3ff')
-                                    diabetic = ax.bar(x + width/2, diabetic_values, width, label='Diabetic', color='#ff9999')
+                                    normal = ax.bar(x - width/2, normal_values, width, label='正常人群', color='#66b3ff')
+                                    diabetic = ax.bar(x + width/2, diabetic_values, width, label='糖尿病患者', color='#ff9999')
                                     
                                     # 添加一些文本元素
-                                    ax.set_title('Comparing Features: Diabetic vs Normal')
+                                    ax.set_title('糖尿病患者与正常人群特征对比')
                                     ax.set_xticks(x)
-                                    ax.set_xticklabels(features, rotation=45, ha='right')
+                                    ax.set_xticklabels(feature_labels, rotation=45, ha='right')
                                     ax.legend()
                                     
                                     # 自动调整布局
@@ -611,11 +652,11 @@ def app():
             if total_diabetic + total_normal > 0:
                 fig, ax = plt.subplots(figsize=(6, 6))
                 ax.pie([total_diabetic, total_normal], 
-                       labels=['Diabetic Risk', 'Normal'], 
+                       labels=['糖尿病风险', '正常人群'], 
                        autopct='%1.1f%%',
                        colors=['#ff9999','#66b3ff'],
                        explode=(0.1, 0))
-                ax.set_title("Patient Risk Distribution")
+                ax.set_title("患者风险分布")
                 st.pyplot(fig)
     
     # 统计分析页面
@@ -677,10 +718,10 @@ def app():
                 width = 0.35
                 
                 # 绘制柱状图
-                ax.bar(x - width/2, norm_vals, width, label='Normal', color='#66b3ff')
-                ax.bar(x + width/2, diab_vals, width, label='Diabetic', color='#ff9999')
+                ax.bar(x - width/2, norm_vals, width, label='正常人群', color='#66b3ff')
+                ax.bar(x + width/2, diab_vals, width, label='糖尿病患者', color='#ff9999')
                 
-                ax.set_title('Average Values by Group')
+                ax.set_title('各组特征均值比较')
                 ax.set_xticks(x)
                 ax.set_xticklabels(feature_names, rotation=45, ha='right')
                 ax.legend()
