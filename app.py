@@ -334,11 +334,11 @@ def app():
                 st.dataframe(db_data.head())
                 
                 # 创建多个选项卡用于不同的可视化
-                tabs = ["患者分布", "特征分析", "相关性", "比较分析"]
+                tabs = ["Patient Distribution", "Feature Analysis", "Correlation", "Comparison Analysis"]
                 selected_tab = st.radio("选择可视化类型", tabs, horizontal=True)
                 
-                if selected_tab == "患者分布":
-                    st.subheader("患者预测结果分布")
+                if selected_tab == "Patient Distribution":
+                    st.subheader("Patient Prediction Distribution")
                     
                     try:
                         fig, ax = plt.subplots(figsize=(8, 6))
@@ -367,8 +367,8 @@ def app():
                             normal_count = counts.get(0.0, 0) + counts.get(0, 0)
                             
                             # 显示数字而不是图表
-                            st.write(f"糖尿病患者：{diabetic_count}")
-                            st.write(f"正常人群：{normal_count}")
+                            st.write(f"Diabetic patients: {diabetic_count}")
+                            st.write(f"Normal people: {normal_count}")
                             
                             # 尝试使用条形图代替饼图
                             fig, ax = plt.subplots(figsize=(6, 4))
@@ -379,14 +379,14 @@ def app():
                         except Exception as e2:
                             st.error(f"备用显示方法也失败：{str(e2)}")
                 
-                elif selected_tab == "特征分析":
-                    st.subheader("特征数据分布")
+                elif selected_tab == "Feature Analysis":
+                    st.subheader("Feature Data Distribution")
                     
                     # 选择要可视化的特征
                     features = ["pregnancies", "glucose", "bloodpressure", "skinthickness", 
                                "insulin", "bmi", "dpf", "age"]
-                    feature_names = ["怀孕次数", "血糖", "血压", "皮肤厚度", 
-                                    "胰岛素", "BMI", "糖尿病家族史", "年龄"]
+                    feature_names = ["Pregnancies", "Glucose", "Blood Pressure", "Skin Thickness", 
+                                    "Insulin", "BMI", "DPF", "Age"]
                     
                     selected_feature = st.selectbox("选择特征", feature_names)
                     feature_idx = feature_names.index(selected_feature)
@@ -427,8 +427,8 @@ def app():
                         st.error(f"绘制特征分布时出错：{str(e)}")
                         st.info("请确保数据库中有足够的有效记录")
                 
-                elif selected_tab == "相关性":
-                    st.subheader("特征相关性分析")
+                elif selected_tab == "Correlation":
+                    st.subheader("Feature Correlation Analysis")
                     
                     try:
                         # 复制数据以避免修改原始数据
@@ -453,17 +453,17 @@ def app():
                             # 计算相关矩阵
                             corr_matrix = numeric_data.corr()
                             
-                            # 将相关矩阵中的列和行名称映射为中文
+                            # 将相关矩阵中的列和行名称映射为英文
                             feature_names_map = {
-                                "pregnancies": "怀孕次数",
-                                "glucose": "血糖", 
-                                "bloodpressure": "血压", 
-                                "skinthickness": "皮肤厚度",
-                                "insulin": "胰岛素", 
+                                "pregnancies": "Pregnancies",
+                                "glucose": "Glucose", 
+                                "bloodpressure": "Blood Pressure", 
+                                "skinthickness": "Skin Thickness",
+                                "insulin": "Insulin", 
                                 "bmi": "BMI", 
-                                "dpf": "糖尿病家族史", 
-                                "age": "年龄", 
-                                "prediction": "预测结果"
+                                "dpf": "DPF", 
+                                "age": "Age", 
+                                "prediction": "Prediction"
                             }
                             
                             # 将现有列名映射为中文名称
@@ -502,8 +502,8 @@ def app():
                         st.error(f"相关性分析出错：{str(e)}")
                         st.info("请检查数据格式和质量")
                     
-                elif selected_tab == "比较分析":
-                    st.subheader("糖尿病患者与正常人群特征比较")
+                elif selected_tab == "Comparison Analysis":
+                    st.subheader("Feature Comparison Between Diabetic and Normal")
                     
                     try:
                         # 确保数据同时包含 0 和 1 的预测值
@@ -530,16 +530,16 @@ def app():
                                 # 创建条形图
                                 features = [col for col in db_means.columns if col != 'prediction']
                                 
-                                # 为 X 轴创建中文标签
+                                # 为 X 轴创建英文标签
                                 feature_names_map = {
-                                    "pregnancies": "怀孕次数",
-                                    "glucose": "血糖", 
-                                    "bloodpressure": "血压", 
-                                    "skinthickness": "皮肤厚度",
-                                    "insulin": "胰岛素", 
+                                    "pregnancies": "Pregnancies",
+                                    "glucose": "Glucose", 
+                                    "bloodpressure": "Blood Pressure", 
+                                    "skinthickness": "Skin Thickness",
+                                    "insulin": "Insulin", 
                                     "bmi": "BMI", 
-                                    "dpf": "糖尿病家族史", 
-                                    "age": "年龄"
+                                    "dpf": "DPF", 
+                                    "age": "Age"
                                 }
                                 feature_labels = [feature_names_map.get(col, col) for col in features]
                                 
@@ -611,14 +611,12 @@ def app():
                         
                         # 创建趋势图
                         fig, ax = plt.subplots(figsize=(10, 4))
+                        ax.plot(dates, predictions, marker='o', linestyle='-', color='#ff9999')
                         ax.set_title(f"Patient {patient_id} Diabetes Risk Trend")
                         ax.set_xlabel("Date")
                         ax.set_ylabel("Prediction Result (1=Diabetic, 0=Normal)")
                         ax.set_yticks([0, 1])
                         ax.set_yticklabels(['Normal', 'Diabetic'])
-                        plt.xticks(rotation=45)
-                        plt.tight_layout()
-                        
                         st.pyplot(fig)
                 else:
                     st.warning(f"没有找到 ID 为 {patient_id} 的患者记录")
@@ -690,7 +688,7 @@ def app():
             st.subheader("特征均值比较")
             
             # 创建比较条形图
-            feature_names = ["怀孕次数", "血糖", "血压", "皮肤厚度", "胰岛素", "BMI", "年龄"]
+            feature_names = ["Pregnancies", "Glucose", "Blood Pressure", "Skin Thickness", "Insulin", "BMI", "Age"]
             
             # 将数据转换为数值类型
             norm_vals = [float(x) if x is not None else 0 for x in means_data['normal']]
