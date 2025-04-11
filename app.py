@@ -10,19 +10,15 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 import matplotlib
 
-# 简化的中文字体设置 改为英文
-plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial Unicode MS'] 
-plt.rcParams['axes.unicode_minus'] = False
-
 # 创建数据库连接和表
 def init_db():
     conn = sqlite3.connect('health_records.db')
     c = conn.cursor()
 
-    # 检查 records 表是否存在
+    # 检查记录表是否存在
     c.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name='records'")
     if c.fetchone()[0] == 0:
-        # 如果 records 表不存在，则创建表
+        # 如果记录表不存在，则创建
         c.execute('''CREATE TABLE records
                     (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                     patient_id INTEGER NOT NULL,    
@@ -36,7 +32,7 @@ def init_db():
                     dpf REAL,   
                     age INTEGER,   
                     prediction INTEGER)''')
-        print("Created 'records' table.")
+        print("创建'records'表。")
     
     conn.commit()
     conn.close()
@@ -74,13 +70,13 @@ print(f"测试集准确率：{test_accuracy:.4f}")
 print("\n分类报告：")
 print(classification_report(y_test, test_y_pred))
 
-# 保存预测结果到数据库
+# 将预测结果保存到数据库
 def save_to_db(patient_id, features, prediction):
     pregnancies, glucose, bp, skinthickness, insulin, bmi, dpf, age = features
     conn = sqlite3.connect('health_records.db')
     c = conn.cursor()
     
-    # 确保 prediction 是整数类型
+    # 确保预测结果是整数类型
     prediction_int = int(prediction)
     
     # 插入记录并显示调试信息
@@ -114,9 +110,9 @@ def get_history_records(page=1, limit=10, date=None):
 
     records = c.execute(query, tuple(params)).fetchall()
     conn.close()
-    return records, len(total_records)  # 返回记录和总条数
+    return records, len(total_records)  # 返回记录和总数
 
-# 获取特定患者记录
+# 获取特定患者的记录
 def get_patient_records(patient_id):  
     conn = sqlite3.connect('health_records.db')
     c = conn.cursor()
@@ -131,7 +127,7 @@ def get_diabetes_statistics():
     conn = sqlite3.connect('health_records.db')
     c = conn.cursor()
     
-    # 修改 SQL 查询，确保处理不同数据类型，将所有非 1 的值视为 0
+    # 修改 SQL 查询以处理不同的数据类型，将所有非 1 值视为 0
     total_diabetic = c.execute("SELECT COUNT(*) FROM records WHERE prediction = 1").fetchone()[0]
     total_normal = c.execute("SELECT COUNT(*) FROM records WHERE prediction IS NULL OR prediction != 1").fetchone()[0]
     
@@ -144,20 +140,20 @@ def get_diabetes_statistics():
 
     return total_diabetic, total_normal
 
-# 获取正常患者和糖尿病患者各项指标的均值
+# 获取正常和糖尿病患者的平均指标
 def get_diabetes_means():
     conn = sqlite3.connect('health_records.db')
     c = conn.cursor()
 
-    # 修改 SQL 查询，对 prediction 进行处理以确保正确分组
-    # 计算正常患者的均值 (所有非 1 的值视为正常)
+    # 修改 SQL 查询以处理预测结果，确保分组正确
+    # 为正常患者计算平均值 (所有非 1 值视为正常)
     normal_means = c.execute("""
         SELECT AVG(pregnancies), AVG(glucose), AVG(bloodpressure), AVG(skinthickness),
                AVG(insulin), AVG(bmi), AVG(age)
         FROM records WHERE prediction IS NULL OR prediction != 1
     """).fetchone()
 
-    # 计算糖尿病患者的均值 (确保 prediction = 1)
+    # 为糖尿病患者计算平均值 (确保预测结果为 1)
     diabetic_means = c.execute("""
         SELECT AVG(pregnancies), AVG(glucose), AVG(bloodpressure), AVG(skinthickness),
                AVG(insulin), AVG(bmi), AVG(age)
@@ -175,7 +171,7 @@ def get_diabetes_means():
 def get_xxdata_from_db():
     conn = sqlite3.connect('health_records.db')
     try:
-        # 查询时直接处理 prediction 列，确保所有错误值变为 0（正常）
+        # 直接处理预测列的查询，确保所有错误值变为 0（正常）
         query = """
         SELECT 
             pregnancies, 
@@ -203,14 +199,14 @@ def get_xxdata_from_db():
 def app():
     # 设置页面标题和图标
     st.set_page_config(
-        page_title="Diabetes Prediction Application",
+        page_title="糖尿病预测应用",
         page_icon="🏥",
         layout="wide",
     )
     
     # 创建导航菜单
-    menu = ["Prediction", "History", "Data Visualization", "Patient Management", "Statistical Analysis"]
-    choice = st.sidebar.selectbox("Navigation", menu)
+    menu = ["预测", "历史", "数据可视化", "患者管理", "统计分析"]
+    choice = st.sidebar.selectbox("导航", menu)
 
     # 预测页面
     if choice == "预测":
@@ -240,7 +236,7 @@ def app():
         features = [preg, glucose, bp, skinthickness, insulin, bmi, dpf, age]
         input_data = [features]
         input_data_nparray = np.asarray(input_data)
-        # 对输入数据进行标准化处理
+        # 标准化输入数据
         scaled_input_data = scaler.transform(input_data_nparray)
 
         prediction = None
@@ -258,7 +254,7 @@ def app():
             else:
                 prediction_text = "✅ 根据输入的特征，模型预测该人没有糖尿病。"
 
-        # 添加一个分隔线
+        # 添加分隔线
         st.markdown("---")
         
         # 预测结果部分
@@ -271,15 +267,15 @@ def app():
         else:
             st.info('请在左侧输入健康指标后点击"预测"按钮')
 
-        # 添加一个分隔线
+        # 添加分隔线
         st.markdown("---")
         
         # 数据集摘要
         st.header('数据集摘要')
         st.write(df.describe())
         
-    # 历史记录页面
-    elif choice == "历史记录":
+    # 历史页面
+    elif choice == "历史":
         st.title("历史预测记录")
         
         # 日期筛选
@@ -300,7 +296,7 @@ def app():
         
         # 显示记录
         if records:
-            # 转换记录为 DataFrame 以便于显示
+            # 将记录转换为 DataFrame 以便显示
             columns = ["ID", "患者 ID", "时间戳", "怀孕次数", "血糖", "血压", "皮肤厚度", "胰岛素", "BMI", "糖尿病家族史", "年龄", "预测结果"]
             records_df = pd.DataFrame(records, columns=columns)
             st.dataframe(records_df)
@@ -322,13 +318,13 @@ def app():
     elif choice == "数据可视化":
         st.title("数据可视化分析")
         
-        # 获取数据库中的记录
+        # 从数据库获取记录
         db_data = get_xxdata_from_db()
         
         if not db_data.empty:
             st.write("数据库中共有 {} 条记录".format(len(db_data)))
             
-            # 确保 prediction 列是正确的数值类型
+            # 确保预测列是正确的数值类型
             try:
                 db_data['prediction'] = db_data['prediction'].astype(float).fillna(0)
                 db_data['prediction'] = db_data['prediction'].apply(lambda x: 1 if x == 1 else 0)
@@ -337,7 +333,7 @@ def app():
                 st.subheader("数据概览")
                 st.dataframe(db_data.head())
                 
-                # 创建多个标签页进行不同的可视化
+                # 创建多个选项卡用于不同的可视化
                 tabs = ["患者分布", "特征分析", "相关性", "比较分析"]
                 selected_tab = st.radio("选择可视化类型", tabs, horizontal=True)
                 
@@ -363,7 +359,7 @@ def app():
                         st.error(f"处理预测结果数据时出错：{str(e)}")
                         st.info("正在尝试替代方法显示数据...")
                         
-                        # 备用显示方法：使用简单的计数显示
+                        # 备用显示方法：使用简单计数显示
                         try:
                             # 直接计算 0 和 1 的数量
                             counts = db_data['prediction'].value_counts().to_dict()
@@ -374,7 +370,7 @@ def app():
                             st.write(f"糖尿病患者：{diabetic_count}")
                             st.write(f"正常人群：{normal_count}")
                             
-                            # 尝试使用柱状图代替饼图
+                            # 尝试使用条形图代替饼图
                             fig, ax = plt.subplots(figsize=(6, 4))
                             ax.bar(['正常人群', '糖尿病患者'], [normal_count, diabetic_count], color=['#66b3ff', '#ff9999'])
                             ax.set_title("患者预测结果分布")
@@ -395,9 +391,9 @@ def app():
                     selected_feature = st.selectbox("选择特征", feature_names)
                     feature_idx = feature_names.index(selected_feature)
                     
-                    # 根据预测结果分组显示特征
+                    # 按预测结果分组显示特征
                     try:
-                        # 确保所选特征的数据是数值类型
+                        # 确保所选特征数据为数值型
                         feature_col = features[feature_idx]
                         db_data[feature_col] = pd.to_numeric(db_data[feature_col], errors='coerce')
                         
@@ -407,7 +403,7 @@ def app():
                         if len(valid_data) > 0:
                             fig, ax = plt.subplots(figsize=(10, 6))
                             
-                            # 计算糖尿病患者和正常人群的直方图
+                            # 计算糖尿病和正常人群的直方图
                             diabetic_data = valid_data[valid_data['prediction'] == 1][feature_col]
                             normal_data = valid_data[valid_data['prediction'] == 0][feature_col]
                             
@@ -435,14 +431,14 @@ def app():
                     st.subheader("特征相关性分析")
                     
                     try:
-                        # 复制数据，以免修改原始数据
+                        # 复制数据以避免修改原始数据
                         numeric_data = db_data.copy()
                         
-                        # 先把所有列转换为字符串以防止错误
+                        # 首先将所有列转换为字符串以防止错误
                         for col in numeric_data.columns:
                             numeric_data[col] = numeric_data[col].astype(str)
                         
-                        # 再转换为数值类型
+                        # 然后转换为数值类型
                         for col in numeric_data.columns:
                             try:
                                 numeric_data[col] = pd.to_numeric(numeric_data[col], errors='coerce')
@@ -454,23 +450,23 @@ def app():
                         numeric_data = numeric_data.dropna()
                         
                         if len(numeric_data) > 0 and len(numeric_data.columns) > 1:
-                            # 计算相关性矩阵
+                            # 计算相关矩阵
                             corr_matrix = numeric_data.corr()
                             
-                            # 为相关性矩阵中的列和行重新指定中文名称
+                            # 将相关矩阵中的列和行名称映射为中文
                             feature_names_map = {
-                                "pregnancies": "Pregnancies",
-                                "glucose": "Glucose", 
-                                "bloodpressure": "Blood Pressure", 
-                                "skinthickness": "Skin Thickness",
-                                "insulin": "Insulin", 
+                                "pregnancies": "怀孕次数",
+                                "glucose": "血糖", 
+                                "bloodpressure": "血压", 
+                                "skinthickness": "皮肤厚度",
+                                "insulin": "胰岛素", 
                                 "bmi": "BMI", 
-                                "dpf": "Diabetes Pedigree Function", 
-                                "age": "Age", 
-                                "prediction": "Prediction"
+                                "dpf": "糖尿病家族史", 
+                                "age": "年龄", 
+                                "prediction": "预测结果"
                             }
                             
-                            # 映射现有列名到中文名称
+                            # 将现有列名映射为中文名称
                             corr_matrix_cn = corr_matrix.copy()
                             new_cols = []
                             for col in corr_matrix.columns:
@@ -483,7 +479,7 @@ def app():
                             fig, ax = plt.subplots(figsize=(10, 8))
                             im = ax.imshow(corr_matrix_cn, cmap='coolwarm')
                             
-                            # 添加每个单元格的数值
+                            # 为每个单元格添加值
                             for i in range(len(corr_matrix_cn.columns)):
                                 for j in range(len(corr_matrix_cn.index)):
                                     text = ax.text(j, i, round(corr_matrix_cn.iloc[i, j], 2),
@@ -495,7 +491,7 @@ def app():
                             ax.set_xticklabels(corr_matrix_cn.columns)
                             ax.set_yticklabels(corr_matrix_cn.index)
                             
-                            # 旋转 x 轴标签
+                            # 旋转 X 轴标签
                             plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
                             
                             ax.set_title("特征相关性热力图")
@@ -513,47 +509,47 @@ def app():
                     st.subheader("糖尿病患者与正常人群特征比较")
                     
                     try:
-                        # 确保数据有 0 和 1 两种预测值
+                        # 确保数据同时包含 0 和 1 的预测值
                         has_normal = 0 in db_data['prediction'].values
                         has_diabetic = 1 in db_data['prediction'].values
                         
                         if has_normal and has_diabetic:
-                            # 确保所有特征列都是数值类型
+                            # 确保所有特征列都是数值型
                             features_data = db_data.copy()
                             for col in features_data.columns:
                                 if col != 'prediction':
                                     features_data[col] = pd.to_numeric(features_data[col], errors='coerce')
                             
-                            # 移除有缺失值的行
+                            # 移除包含缺失值的行
                             features_data = features_data.dropna()
                             
                             if len(features_data) > 0:
-                                # 计算每组的均值
+                                # 计算每个组的平均值
                                 db_means = features_data.groupby('prediction').mean()
                                 
                                 # 分组条形图
                                 fig, ax = plt.subplots(figsize=(12, 6))
                                 
-                                # 创建柱状图
+                                # 创建条形图
                                 features = [col for col in db_means.columns if col != 'prediction']
                                 
-                                # 为 x 轴创建中文标签
+                                # 为 X 轴创建中文标签
                                 feature_names_map = {
-                                    "pregnancies": "Pregnancies",
-                                    "glucose": "Glucose", 
-                                    "bloodpressure": "Blood Pressure", 
-                                    "skinthickness": "Skin Thickness",
-                                    "insulin": "Insulin", 
+                                    "pregnancies": "怀孕次数",
+                                    "glucose": "血糖", 
+                                    "bloodpressure": "血压", 
+                                    "skinthickness": "皮肤厚度",
+                                    "insulin": "胰岛素", 
                                     "bmi": "BMI", 
-                                    "dpf": "Diabetes Pedigree Function", 
-                                    "age": "Age"
+                                    "dpf": "糖尿病家族史", 
+                                    "age": "年龄"
                                 }
                                 feature_labels = [feature_names_map.get(col, col) for col in features]
                                 
                                 x = np.arange(len(features))  # 特征位置
-                                width = 0.35  # 柱的宽度
+                                width = 0.35  # 条形宽度
                                 
-                                # 安全地获取值
+                                # 安全获取值
                                 if 0 in db_means.index and 1 in db_means.index:
                                     normal_values = db_means.loc[0].values
                                     diabetic_values = db_means.loc[1].values
@@ -561,7 +557,7 @@ def app():
                                     normal = ax.bar(x - width/2, normal_values, width, label='正常人群', color='#66b3ff')
                                     diabetic = ax.bar(x + width/2, diabetic_values, width, label='糖尿病患者', color='#ff9999')
                                     
-                                    # 添加一些文本元素
+                                    # 添加文本元素
                                     ax.set_title('糖尿病患者与正常人群特征对比')
                                     ax.set_xticks(x)
                                     ax.set_xticklabels(feature_labels, rotation=45, ha='right')
@@ -603,12 +599,12 @@ def app():
                 if records:
                     st.success(f"找到 {len(records)} 条患者记录")
                     
-                    # 转换记录为 DataFrame
+                    # 将记录转换为 DataFrame
                     columns = ["ID", "患者 ID", "时间戳", "怀孕次数", "血糖", "血压", "皮肤厚度", "胰岛素", "BMI", "糖尿病家族史", "年龄", "预测结果"]
                     records_df = pd.DataFrame(records, columns=columns)
                     st.dataframe(records_df)
                     
-                    # 绘制患者的预测历史趋势
+                    # 绘制患者预测历史趋势
                     if len(records) > 1:
                         st.subheader("患者预测历史趋势")
                         
@@ -636,7 +632,7 @@ def app():
             
             total_diabetic, total_normal = get_diabetes_statistics()
             
-            # 显示统计信息
+            # 显示统计数据
             col_a, col_b = st.columns(2)
             with col_a:
                 st.metric("糖尿病患者数量", total_diabetic)
@@ -658,7 +654,7 @@ def app():
     elif choice == "统计分析":
         st.title("统计分析")
         
-        # 获取原始数据集和预测数据的统计信息
+        # 从原始数据集和预测数据获取统计信息
         db_data = get_xxdata_from_db()
         
         st.subheader("数据集对比")
@@ -673,10 +669,10 @@ def app():
             if not db_data.empty:
                 st.write("预测数据统计")
                 try:
-                    # 确保 prediction 列处理正确，所有非 1 值设为 0
+                    # 确保预测列处理正确，所有非 1 值设为 0
                     db_data['prediction'] = db_data['prediction'].apply(lambda x: 1.0 if x == 1.0 else 0.0)
                     
-                    # 尝试进行分组计算
+                    # 尝试执行分组计算
                     grouped_means = db_data.groupby('prediction').mean()
                     st.dataframe(grouped_means)
                 except Exception as e:
@@ -686,10 +682,10 @@ def app():
             else:
                 st.info("数据库中没有预测记录")
         
-        # 获取病患和正常人群的特征均值比较
+        # 获取正常和糖尿病患者之间的特征均值比较
         means_data = get_diabetes_means()
         
-        # 检查是否有有效数据进行比较
+        # 检查是否有有效的比较数据
         if (means_data['normal'][0] is not None and 
             means_data['diabetic'][0] is not None and
             not all(x is None for x in means_data['normal']) and
@@ -700,7 +696,7 @@ def app():
             # 创建比较条形图
             feature_names = ["怀孕次数", "血糖", "血压", "皮肤厚度", "胰岛素", "BMI", "年龄"]
             
-            # 转换数据为数值类型
+            # 将数据转换为数值类型
             norm_vals = [float(x) if x is not None else 0 for x in means_data['normal']]
             diab_vals = [float(x) if x is not None else 0 for x in means_data['diabetic']]
             
@@ -712,7 +708,7 @@ def app():
                 x = np.arange(len(feature_names))
                 width = 0.35
                 
-                # 绘制柱状图
+                # 绘制条形图
                 ax.bar(x - width/2, norm_vals, width, label='正常人群', color='#66b3ff')
                 ax.bar(x + width/2, diab_vals, width, label='糖尿病患者', color='#ff9999')
                 
@@ -724,7 +720,7 @@ def app():
                 fig.tight_layout()
                 st.pyplot(fig)
                 
-                # 增加分析解读
+                # 添加分析解读
                 st.subheader("分析解读")
                 
                 # 计算百分比差异
@@ -736,7 +732,7 @@ def app():
                     else:
                         pct_diff.append(0)
                 
-                # 找出差异最大的特征
+                # 查找差异最大的特征
                 if pct_diff:
                     max_diff_idx = np.argmax(np.abs(pct_diff))
                     
