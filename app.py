@@ -131,9 +131,9 @@ def get_diabetes_statistics():
     conn = sqlite3.connect('health_records.db')
     c = conn.cursor()
     
-    # 修改 SQL 查询，确保处理不同数据类型
+    # 修改 SQL 查询，确保处理不同数据类型，将所有非 1 的值视为 0
     total_diabetic = c.execute("SELECT COUNT(*) FROM records WHERE prediction = 1").fetchone()[0]
-    total_normal = c.execute("SELECT COUNT(*) FROM records WHERE prediction = 0").fetchone()[0]
+    total_normal = c.execute("SELECT COUNT(*) FROM records WHERE prediction IS NULL OR prediction != 1").fetchone()[0]
     
     # 总记录数
     total_all = c.execute("SELECT COUNT(*) FROM records").fetchone()[0]
@@ -149,15 +149,15 @@ def get_diabetes_means():
     conn = sqlite3.connect('health_records.db')
     c = conn.cursor()
 
-    # 修改 SQL 查询，确保正确处理数据类型
-    # 计算正常患者的均值
+    # 修改 SQL 查询，对 prediction 进行处理以确保正确分组
+    # 计算正常患者的均值 (所有非 1 的值视为正常)
     normal_means = c.execute("""
         SELECT AVG(pregnancies), AVG(glucose), AVG(bloodpressure), AVG(skinthickness),
                AVG(insulin), AVG(bmi), AVG(age)
-        FROM records WHERE prediction = 0
+        FROM records WHERE prediction IS NULL OR prediction != 1
     """).fetchone()
 
-    # 计算糖尿病患者的均值
+    # 计算糖尿病患者的均值 (确保 prediction = 1)
     diabetic_means = c.execute("""
         SELECT AVG(pregnancies), AVG(glucose), AVG(bloodpressure), AVG(skinthickness),
                AVG(insulin), AVG(bmi), AVG(age)
@@ -175,18 +175,21 @@ def get_diabetes_means():
 def get_xxdata_from_db():
     conn = sqlite3.connect('health_records.db')
     try:
-        # 确保返回的数据都是数值类型
+        # 查询时直接处理 prediction 列，确保所有错误值变为 0（正常）
         query = """
         SELECT 
-            CAST(pregnancies AS REAL), 
-            CAST(glucose AS REAL), 
-            CAST(bloodpressure AS REAL), 
-            CAST(skinthickness AS REAL), 
-            CAST(insulin AS REAL), 
-            CAST(bmi AS REAL), 
-            CAST(dpf AS REAL), 
-            CAST(age AS REAL), 
-            CAST(prediction AS INTEGER) 
+            pregnancies, 
+            glucose, 
+            bloodpressure, 
+            skinthickness, 
+            insulin, 
+            bmi, 
+            dpf, 
+            age, 
+            CASE
+                WHEN prediction IS NULL OR prediction != 1 THEN 0
+                ELSE 1
+            END as prediction 
         FROM records
         """
         df = pd.read_sql_query(query, conn)
@@ -337,12 +340,8 @@ def app():
                 st.subheader("患者预测结果分布")
                 
                 try:
-                    # 确保 prediction 列是数值类型
-                    db_data['prediction'] = pd.to_numeric(db_data['prediction'], errors='coerce')
-                    # 删除无效值
-                    db_data = db_data.dropna(subset=['prediction'])
-                    # 确保 prediction 是整数类型
-                    db_data['prediction'] = db_data['prediction'].astype(int)
+                    # 确保 prediction 列处理正确，所有非 1 值设为 0
+                    db_data['prediction'] = db_data['prediction'].apply(lambda x: 1 if x == 1 else 0)
                     
                     fig, ax = plt.subplots(figsize=(8, 6))
                     diabetic_count = db_data[db_data['prediction'] == 1].shape[0]
@@ -351,10 +350,10 @@ def app():
                     # 检查是否有数据
                     if diabetic_count > 0 or normal_count > 0:
                         ax.pie([diabetic_count, normal_count], 
-                              labels=['Diabetic Patients', 'Normal'], 
+                              labels=['糖尿病患者', '正常人群'], 
                               autopct='%1.1f%%',
                               colors=['#ff9999','#66b3ff'])
-                        ax.set_title("Patient Prediction Distribution")
+                        ax.set_title("患者预测结果分布")
                         st.pyplot(fig)
                     else:
                         st.warning("没有有效的预测结果数据")
@@ -581,23 +580,15 @@ def app():
             if not db_data.empty:
                 st.write("预测数据统计")
                 try:
-                    # 确保 prediction 列是数值类型
-                    db_data['prediction'] = pd.to_numeric(db_data['prediction'], errors='coerce')
-                    # 删除无效值
-                    db_data = db_data.dropna(subset=['prediction'])
-                    # 确保 prediction 是整数类型
-                    db_data['prediction'] = db_data['prediction'].astype(int)
+                    # 确保 prediction 列处理正确，所有非 1 值设为 0
+                    db_data['prediction'] = db_data['prediction'].apply(lambda x: 1.0 if x == 1.0 else 0.0)
                     
                     # 尝试进行分组计算
-                    if 0 in db_data['prediction'].values and 1 in db_data['prediction'].values:
-                        grouped_means = db_data.groupby('prediction').mean()
-                        st.dataframe(grouped_means)
-                    else:
-                        st.warning("数据中缺少正常人群或糖尿病患者的记录")
-                        st.dataframe(db_data.describe())
+                    grouped_means = db_data.groupby('prediction').mean()
+                    st.dataframe(grouped_means)
                 except Exception as e:
                     st.error(f"计算预测数据统计时出错：{str(e)}")
-                    st.info("显示原始数据统计信息")
+                    st.info("正在显示所有数据的统计信息，不进行分组")
                     st.dataframe(db_data.describe())
             else:
                 st.info("数据库中没有预测记录")
