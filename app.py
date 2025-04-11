@@ -2,17 +2,15 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import sqlite3
-import torch
-import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import datetime
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 import matplotlib
 
-# 设置matplotlib支持中文字体
+# 设置 matplotlib 支持中文字体
 matplotlib.rcParams['font.sans-serif'] = ['SimHei']  # 用来正常显示中文标签
 matplotlib.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
 
@@ -24,7 +22,7 @@ def init_db():
     # 检查 records 表是否存在
     c.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name='records'")
     if c.fetchone()[0] == 0:
-        # 如果 records 表不存在,则创建表
+        # 如果 records 表不存在，则创建表
         c.execute('''CREATE TABLE records
                     (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                     patient_id INTEGER NOT NULL,    
@@ -46,30 +44,6 @@ def init_db():
 # 初始化数据库
 init_db()
 
-# 定义PyTorch深度学习模型
-class Net(torch.nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
-        self.linear1 = torch.nn.Linear(8, 72)
-        self.linear2 = torch.nn.Linear(72, 64)
-        self.linear3 = torch.nn.Linear(64, 1)
-
-    def forward(self, x):
-        x = F.relu(self.linear1(x))
-        x = F.relu(self.linear2(x))
-        x = F.relu(self.linear3(x))
-        return x
-
-# 尝试加载PyTorch模型
-try:
-    pytorch_model = Net()
-    pytorch_model.load_state_dict(torch.load('./Ddiabetes_model.pth'))
-    pytorch_model.eval()
-    use_pytorch_model = True
-except Exception as e:
-    print(f"无法加载PyTorch模型: {e}")
-    use_pytorch_model = False
-
 # 加载数据集
 df = pd.read_csv('diabetes.csv')
 diabetes_mean_df = df.groupby('Outcome').mean()
@@ -84,19 +58,37 @@ X = scaler.transform(X)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
 
-model=LogisticRegression()
+# 创建并训练逻辑回归模型
+model = LogisticRegression(max_iter=1000)
 model.fit(X_train, y_train)
 
+# 评估模型性能
 train_y_pred = model.predict(X_train)
 test_y_pred = model.predict(X_test)
+
+train_accuracy = accuracy_score(y_train, train_y_pred)
+test_accuracy = accuracy_score(y_test, test_y_pred)
+
+print(f"训练集准确率：{train_accuracy:.4f}")
+print(f"测试集准确率：{test_accuracy:.4f}")
+print("\n分类报告：")
+print(classification_report(y_test, test_y_pred))
 
 # 保存预测结果到数据库
 def save_to_db(patient_id, features, prediction):
     pregnancies, glucose, bp, skinthickness, insulin, bmi, dpf, age = features
     conn = sqlite3.connect('health_records.db')
     c = conn.cursor()
+    
+    # 确保 prediction 是整数类型
+    prediction_int = int(prediction)
+    
+    # 插入记录并显示调试信息
+    st.write(f"DEBUG: 存储预测结果：患者 ID={patient_id}, 预测结果={prediction_int} (原始值：{prediction}, 类型：{type(prediction)})")
+    
     c.execute("INSERT INTO records (patient_id, timestamp, pregnancies, glucose, bloodpressure, skinthickness, insulin, bmi, dpf, age, prediction) VALUES (?, DATETIME('now', 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?, ?)",   
-            (patient_id, pregnancies, glucose, bp, skinthickness, insulin, bmi, dpf, age, prediction))   
+            (patient_id, pregnancies, glucose, bp, skinthickness, insulin, bmi, dpf, age, prediction_int))   
+    
     conn.commit()
     conn.close()
 
@@ -138,9 +130,16 @@ def get_patient_records(patient_id):
 def get_diabetes_statistics():
     conn = sqlite3.connect('health_records.db')
     c = conn.cursor()
-  
-    total_diabetic = c.execute("SELECT COUNT(*) FROM records WHERE prediction = 1").fetchone()[0]
-    total_normal = c.execute("SELECT COUNT(*) FROM records WHERE prediction = 0").fetchone()[0]
+    
+    # 修改 SQL 查询，确保处理不同数据类型
+    # 先把 prediction 转换为文本，再转为数值类型
+    total_diabetic = c.execute("SELECT COUNT(*) FROM records WHERE CAST(prediction AS TEXT) = '1'").fetchone()[0]
+    total_normal = c.execute("SELECT COUNT(*) FROM records WHERE CAST(prediction AS TEXT) = '0'").fetchone()[0]
+    
+    # 添加诊断查询
+    total_all = c.execute("SELECT COUNT(*) FROM records").fetchone()[0]
+    st.write(f"DEBUG: 总记录数：{total_all}, 糖尿病：{total_diabetic}, 正常：{total_normal}")
+    
     conn.close()
 
     return total_diabetic, total_normal
@@ -150,18 +149,19 @@ def get_diabetes_means():
     conn = sqlite3.connect('health_records.db')
     c = conn.cursor()
 
+    # 修改 SQL 查询，使用 CAST 确保正确处理不同数据类型
     # 计算正常患者的均值
     normal_means = c.execute("""
         SELECT AVG(pregnancies), AVG(glucose), AVG(bloodpressure), AVG(skinthickness),
                AVG(insulin), AVG(bmi), AVG(age)
-        FROM records WHERE prediction = 0
+        FROM records WHERE CAST(prediction AS TEXT) = '0'
     """).fetchone()
 
     # 计算糖尿病患者的均值
     diabetic_means = c.execute("""
         SELECT AVG(pregnancies), AVG(glucose), AVG(bloodpressure), AVG(skinthickness),
                AVG(insulin), AVG(bmi), AVG(age)
-        FROM records WHERE prediction = 1
+        FROM records WHERE CAST(prediction AS TEXT) = '1'
     """).fetchone()
 
     conn.close()
@@ -206,7 +206,7 @@ def app():
 
         # 输入表单 
         st.sidebar.title('输入特征')
-        patient_id = st.sidebar.number_input('患者ID', min_value=1, step=1, value=1000)
+        patient_id = st.sidebar.number_input('患者 ID', min_value=1, step=1, value=1000)
         preg = st.sidebar.slider('怀孕次数', 0, 17, 3)
         glucose = st.sidebar.slider('血糖', 0, 199, 117)
         bp = st.sidebar.slider('血压', 0, 122, 72)
@@ -226,16 +226,8 @@ def app():
         prediction_text = None
 
         if st.sidebar.button('预测', key='predict_button'):
-            # 使用PyTorch模型进行预测 (如果可用)
-            if use_pytorch_model:
-                with torch.no_grad():
-                    input_tensor = torch.tensor(input_data).to(torch.float32)
-                    output = pytorch_model(input_tensor)
-                    probability = torch.sigmoid(output).item()
-                    prediction = [1 if probability >= 0.5 else 0]
-            else:
-                # 回退到逻辑回归模型
-                prediction = model.predict(scaled_input_data)
+            # 使用逻辑回归模型进行预测
+            prediction = model.predict(scaled_input_data)
             
             # 保存预测结果到数据库
             save_to_db(patient_id, features, prediction[0])
@@ -287,8 +279,8 @@ def app():
         
         # 显示记录
         if records:
-            # 转换记录为DataFrame以便于显示
-            columns = ["ID", "患者ID", "时间戳", "怀孕次数", "血糖", "血压", "皮肤厚度", "胰岛素", "BMI", "糖尿病家族史", "年龄", "预测结果"]
+            # 转换记录为 DataFrame 以便于显示
+            columns = ["ID", "患者 ID", "时间戳", "怀孕次数", "血糖", "血压", "皮肤厚度", "胰岛素", "BMI", "糖尿病家族史", "年龄", "预测结果"]
             records_df = pd.DataFrame(records, columns=columns)
             st.dataframe(records_df)
             
@@ -298,7 +290,7 @@ def app():
             st.info("没有找到历史记录")
         
         # 数据导出按钮
-        if st.button("导出数据为CSV"):
+        if st.button("导出数据为 CSV"):
             records_df.to_csv("diabetes_predictions.csv", index=False)
             st.success("数据已导出到 diabetes_predictions.csv")
     
@@ -323,16 +315,30 @@ def app():
             if selected_tab == "患者分布":
                 st.subheader("患者预测结果分布")
                 
-                fig, ax = plt.subplots(figsize=(8, 6))
-                diabetic_count = db_data[db_data['prediction'] == 1].shape[0]
-                normal_count = db_data[db_data['prediction'] == 0].shape[0]
-                
-                ax.pie([diabetic_count, normal_count], 
-                       labels=['糖尿病患者', '正常人群'], 
-                       autopct='%1.1f%%',
-                       colors=['#ff9999','#66b3ff'])
-                ax.set_title("患者预测结果分布")
-                st.pyplot(fig)
+                # 确保 prediction 列是数值类型
+                try:
+                    db_data['prediction'] = pd.to_numeric(db_data['prediction'], errors='coerce')
+                    # 删除无效值
+                    db_data = db_data.dropna(subset=['prediction'])
+                    # 确保 prediction 是整数类型
+                    db_data['prediction'] = db_data['prediction'].astype(int)
+                    
+                    fig, ax = plt.subplots(figsize=(8, 6))
+                    diabetic_count = db_data[db_data['prediction'] == 1].shape[0]
+                    normal_count = db_data[db_data['prediction'] == 0].shape[0]
+                    
+                    if diabetic_count > 0 or normal_count > 0:
+                        ax.pie([diabetic_count, normal_count], 
+                              labels=['糖尿病患者', '正常人群'], 
+                              autopct='%1.1f%%',
+                              colors=['#ff9999','#66b3ff'])
+                        ax.set_title("患者预测结果分布")
+                        st.pyplot(fig)
+                    else:
+                        st.warning("没有有效的预测结果数据")
+                except Exception as e:
+                    st.error(f"处理预测结果数据时出错：{str(e)}")
+                    st.info("尝试检查数据库中的预测结果格式")
                 
             elif selected_tab == "特征分析":
                 st.subheader("特征数据分布")
@@ -367,65 +373,107 @@ def app():
             elif selected_tab == "相关性":
                 st.subheader("特征相关性分析")
                 
-                # 计算相关性矩阵
-                corr_matrix = db_data.corr()
-                
-                # 显示热力图
-                fig, ax = plt.subplots(figsize=(10, 8))
-                im = ax.imshow(corr_matrix, cmap='coolwarm')
-                
-                # 添加每个单元格的数值
-                for i in range(len(corr_matrix.columns)):
-                    for j in range(len(corr_matrix.index)):
-                        text = ax.text(j, i, round(corr_matrix.iloc[i, j], 2),
-                                      ha="center", va="center", color="black")
-                
-                # 设置坐标轴
-                ax.set_xticks(np.arange(len(corr_matrix.columns)))
-                ax.set_yticks(np.arange(len(corr_matrix.index)))
-                ax.set_xticklabels(corr_matrix.columns)
-                ax.set_yticklabels(corr_matrix.index)
-                
-                # 旋转x轴标签
-                plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
-                
-                ax.set_title("特征相关性热力图")
-                fig.colorbar(im)
-                fig.tight_layout()
-                
-                st.pyplot(fig)
+                try:
+                    # 转换数据类型，确保 prediction 列正确处理
+                    numeric_data = db_data.copy()
+                    
+                    # 特殊处理 prediction 列，将无法转换为数值的记录设置为 0（正常）
+                    try:
+                        numeric_data['prediction'] = pd.to_numeric(numeric_data['prediction'], errors='coerce')
+                        # 将 NaN 值（无法转换的值）填充为 0（正常）
+                        numeric_data['prediction'] = numeric_data['prediction'].fillna(0).astype(int)
+                        st.success("成功将 prediction 列转换为数值，并将无法转换的值设为正常 (0)")
+                    except Exception as e:
+                        st.warning(f"处理 prediction 列时出错：{str(e)}")
+                    
+                    # 尝试转换其他列为浮点数
+                    for col in numeric_data.columns:
+                        if col != 'prediction':  # 跳过已处理的 prediction 列
+                            try:
+                                numeric_data[col] = pd.to_numeric(numeric_data[col], errors='raise')
+                            except:
+                                st.warning(f"列 '{col}' 包含无法转换为数值的数据，已从相关性分析中排除")
+                                numeric_data = numeric_data.drop(col, axis=1)
+                    
+                    if len(numeric_data.columns) > 1:  # 至少需要两列才能计算相关性
+                        # 计算相关性矩阵
+                        corr_matrix = numeric_data.corr()
+                        
+                        # 显示热力图
+                        fig, ax = plt.subplots(figsize=(10, 8))
+                        im = ax.imshow(corr_matrix, cmap='coolwarm')
+                        
+                        # 添加每个单元格的数值
+                        for i in range(len(corr_matrix.columns)):
+                            for j in range(len(corr_matrix.index)):
+                                text = ax.text(j, i, round(corr_matrix.iloc[i, j], 2),
+                                            ha="center", va="center", color="black")
+                        
+                        # 设置坐标轴
+                        ax.set_xticks(np.arange(len(corr_matrix.columns)))
+                        ax.set_yticks(np.arange(len(corr_matrix.index)))
+                        ax.set_xticklabels(corr_matrix.columns)
+                        ax.set_yticklabels(corr_matrix.index)
+                        
+                        # 旋转 x 轴标签
+                        plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+                        
+                        ax.set_title("特征相关性热力图")
+                        fig.colorbar(im)
+                        fig.tight_layout()
+                        
+                        st.pyplot(fig)
+                    else:
+                        st.error("数据中没有足够的数值列来计算相关性")
+                except Exception as e:
+                    st.error(f"计算相关性时出错：{str(e)}")
+                    st.info("这可能是因为数据中包含非数值数据或二进制数据")
                 
             elif selected_tab == "比较分析":
                 st.subheader("糖尿病患者与正常人群特征比较")
                 
-                # 计算每组的均值
-                db_means = db_data.groupby('prediction').mean()
-                
-                # 转换为便于绘图的格式
-                df_melted = pd.melt(db_means.reset_index(), id_vars=['prediction'],
-                                   value_vars=db_means.columns)
-                
-                # 分组条形图
-                fig, ax = plt.subplots(figsize=(12, 6))
-                
-                # 创建柱状图
-                features = db_means.columns
-                x = np.arange(len(features))  # 特征位置
-                width = 0.35  # 柱的宽度
-                
-                normal = ax.bar(x - width/2, db_means.loc[0], width, label='正常人群', color='#66b3ff')
-                diabetic = ax.bar(x + width/2, db_means.loc[1], width, label='糖尿病患者', color='#ff9999')
-                
-                # 添加一些文本元素
-                ax.set_title('糖尿病患者与正常人群特征均值比较')
-                ax.set_xticks(x)
-                ax.set_xticklabels(features, rotation=45, ha='right')
-                ax.legend()
-                
-                # 自动调整布局
-                fig.tight_layout()
-                
-                st.pyplot(fig)
+                try:
+                    # 先处理 prediction 列，确保它是数值类型
+                    db_data['prediction'] = pd.to_numeric(db_data['prediction'], errors='coerce')
+                    # 将 NaN 值填充为 0（正常人群）
+                    db_data['prediction'] = db_data['prediction'].fillna(0).astype(int)
+                    
+                    # 计算每组的均值
+                    db_means = db_data.groupby('prediction').mean()
+                    
+                    # 分组条形图
+                    fig, ax = plt.subplots(figsize=(12, 6))
+                    
+                    # 检查索引是否包含 0 和 1
+                    if 0 not in db_means.index or 1 not in db_means.index:
+                        st.warning("数据中缺少正常人群或糖尿病患者的记录，无法进行比较")
+                    else:
+                        # 转换为便于绘图的格式
+                        df_melted = pd.melt(db_means.reset_index(), id_vars=['prediction'],
+                                          value_vars=db_means.columns)
+                        
+                        # 创建柱状图
+                        features = db_means.columns
+                        x = np.arange(len(features))  # 特征位置
+                        width = 0.35  # 柱的宽度
+                        
+                        # 使用.values 避免索引问题
+                        normal = ax.bar(x - width/2, db_means.loc[0].values, width, label='正常人群', color='#66b3ff')
+                        diabetic = ax.bar(x + width/2, db_means.loc[1].values, width, label='糖尿病患者', color='#ff9999')
+                        
+                        # 添加一些文本元素
+                        ax.set_title('糖尿病患者与正常人群特征均值比较')
+                        ax.set_xticks(x)
+                        ax.set_xticklabels(features, rotation=45, ha='right')
+                        ax.legend()
+                        
+                        # 自动调整布局
+                        fig.tight_layout()
+                        
+                        st.pyplot(fig)
+                except Exception as e:
+                    st.error(f"比较分析出错：{str(e)}")
+                    st.info("尝试检查数据库中 prediction 列的数据格式")
         else:
             st.info("数据库中没有记录，请先进行一些预测")
     
@@ -438,15 +486,15 @@ def app():
         
         with col1:
             st.subheader("患者查询")
-            patient_id = st.number_input("输入患者ID", min_value=1, step=1)
+            patient_id = st.number_input("输入患者 ID", min_value=1, step=1)
             
             if st.button("查询"):
                 records = get_patient_records(patient_id)
                 if records:
                     st.success(f"找到 {len(records)} 条患者记录")
                     
-                    # 转换记录为DataFrame
-                    columns = ["ID", "患者ID", "时间戳", "怀孕次数", "血糖", "血压", "皮肤厚度", "胰岛素", "BMI", "糖尿病家族史", "年龄", "预测结果"]
+                    # 转换记录为 DataFrame
+                    columns = ["ID", "患者 ID", "时间戳", "怀孕次数", "血糖", "血压", "皮肤厚度", "胰岛素", "BMI", "糖尿病家族史", "年龄", "预测结果"]
                     records_df = pd.DataFrame(records, columns=columns)
                     st.dataframe(records_df)
                     
@@ -463,7 +511,7 @@ def app():
                         ax.plot(dates, predictions, marker='o', linestyle='-', color='#ff9999')
                         ax.set_title(f"患者 {patient_id} 的糖尿病风险趋势")
                         ax.set_xlabel("日期")
-                        ax.set_ylabel("预测结果 (1=患病, 0=正常)")
+                        ax.set_ylabel("预测结果 (1=患病，0=正常)")
                         ax.set_yticks([0, 1])
                         ax.set_yticklabels(['正常', '患病'])
                         plt.xticks(rotation=45)
@@ -471,7 +519,7 @@ def app():
                         
                         st.pyplot(fig)
                 else:
-                    st.warning(f"没有找到ID为 {patient_id} 的患者记录")
+                    st.warning(f"没有找到 ID 为 {patient_id} 的患者记录")
         
         with col2:
             st.subheader("患者统计")
@@ -514,7 +562,21 @@ def app():
         with col2:
             if not db_data.empty:
                 st.write("预测数据统计")
-                st.dataframe(db_data.groupby('prediction').mean())
+                try:
+                    # 确保 prediction 列是数值类型
+                    db_data['prediction'] = pd.to_numeric(db_data['prediction'], errors='coerce')
+                    # 删除无效值
+                    db_data = db_data.dropna(subset=['prediction'])
+                    # 确保 prediction 是整数类型
+                    db_data['prediction'] = db_data['prediction'].astype(int)
+                    
+                    # 尝试进行分组计算
+                    grouped_means = db_data.groupby('prediction').mean()
+                    st.dataframe(grouped_means)
+                except Exception as e:
+                    st.error(f"计算预测数据统计时出错：{str(e)}")
+                    st.info("尝试显示原始数据，不进行分组")
+                    st.dataframe(db_data.describe())
             else:
                 st.info("数据库中没有预测记录")
         
@@ -568,7 +630,7 @@ def app():
                 st.write("**血糖**水平在糖尿病患者中明显较高，这与医学研究一致。")
                 
             if diab_vals[5] > norm_vals[5]:
-                st.write("**BMI**(体重指数)在糖尿病患者中也有显著升高，表明肥胖可能是糖尿病的危险因素。")
+                st.write("**BMI**(体重指数) 在糖尿病患者中也有显著升高，表明肥胖可能是糖尿病的危险因素。")
                 
             st.write("这些数据分析结果可以帮助医疗专业人员更好地识别糖尿病风险因素，为患者提供更精准的预防建议。")
         else:
