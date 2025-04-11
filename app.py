@@ -328,169 +328,226 @@ def app():
         if not db_data.empty:
             st.write("数据库中共有 {} 条记录".format(len(db_data)))
             
-            # 数据概览
-            st.subheader("数据概览")
-            st.dataframe(db_data.head())
-            
-            # 创建多个标签页进行不同的可视化
-            tabs = ["患者分布", "特征分析", "相关性", "比较分析"]
-            selected_tab = st.radio("选择可视化类型", tabs, horizontal=True)
-            
-            if selected_tab == "患者分布":
-                st.subheader("患者预测结果分布")
+            # 确保 prediction 列是正确的数值类型
+            try:
+                db_data['prediction'] = db_data['prediction'].astype(float).fillna(0)
+                db_data['prediction'] = db_data['prediction'].apply(lambda x: 1 if x == 1 else 0)
                 
-                try:
-                    # 确保 prediction 列处理正确，所有非 1 值设为 0
-                    db_data['prediction'] = db_data['prediction'].apply(lambda x: 1 if x == 1 else 0)
-                    
-                    fig, ax = plt.subplots(figsize=(8, 6))
-                    diabetic_count = db_data[db_data['prediction'] == 1].shape[0]
-                    normal_count = db_data[db_data['prediction'] == 0].shape[0]
-                    
-                    # 检查是否有数据
-                    if diabetic_count > 0 or normal_count > 0:
-                        ax.pie([diabetic_count, normal_count], 
-                              labels=['糖尿病患者', '正常人群'], 
-                              autopct='%1.1f%%',
-                              colors=['#ff9999','#66b3ff'])
-                        ax.set_title("患者预测结果分布")
-                        st.pyplot(fig)
-                    else:
-                        st.warning("没有有效的预测结果数据")
-                except Exception as e:
-                    st.error(f"处理预测结果数据时出错：{str(e)}")
-                    st.info("尝试检查数据库中的预测结果格式")
+                # 数据概览
+                st.subheader("数据概览")
+                st.dataframe(db_data.head())
                 
-            elif selected_tab == "特征分析":
-                st.subheader("特征数据分布")
+                # 创建多个标签页进行不同的可视化
+                tabs = ["患者分布", "特征分析", "相关性", "比较分析"]
+                selected_tab = st.radio("选择可视化类型", tabs, horizontal=True)
                 
-                # 选择要可视化的特征
-                features = ["pregnancies", "glucose", "bloodpressure", "skinthickness", 
-                           "insulin", "bmi", "dpf", "age"]
-                feature_names = ["怀孕次数", "血糖", "血压", "皮肤厚度", 
-                                "胰岛素", "BMI", "糖尿病家族史", "年龄"]
-                
-                selected_feature = st.selectbox("选择特征", feature_names)
-                feature_idx = feature_names.index(selected_feature)
-                
-                # 根据预测结果分组显示特征
-                try:
-                    fig, ax = plt.subplots(figsize=(10, 6))
+                if selected_tab == "患者分布":
+                    st.subheader("患者预测结果分布")
                     
-                    # 计算糖尿病患者和正常人群的直方图
-                    diabetic_data = db_data[db_data['prediction'] == 1][features[feature_idx]]
-                    normal_data = db_data[db_data['prediction'] == 0][features[feature_idx]]
-                    
-                    # 直方图
-                    ax.hist(diabetic_data, alpha=0.5, label='Diabetic', bins=15, color='#ff9999')
-                    ax.hist(normal_data, alpha=0.5, label='Normal', bins=15, color='#66b3ff')
-                    
-                    ax.set_xlabel(feature_names[feature_idx])
-                    ax.set_ylabel('Frequency')
-                    ax.set_title(f'{feature_names[feature_idx]} Distribution')
-                    ax.legend()
-                    
-                    st.pyplot(fig)
-                except Exception as e:
-                    st.error(f"绘制特征分布时出错: {str(e)}")
-                    st.info("请确保数据库中有足够的记录")
-            
-            elif selected_tab == "相关性":
-                st.subheader("特征相关性分析")
-                
-                try:
-                    # 复制数据，以免修改原始数据
-                    numeric_data = db_data.copy()
-                    
-                    # 转换所有列为数值类型
-                    for col in numeric_data.columns:
+                    try:
+                        fig, ax = plt.subplots(figsize=(8, 6))
+                        diabetic_count = int(db_data[db_data['prediction'] == 1].shape[0])
+                        normal_count = int(db_data[db_data['prediction'] == 0].shape[0])
+                        
+                        # 检查是否有数据
+                        if diabetic_count > 0 or normal_count > 0:
+                            ax.pie([diabetic_count, normal_count], 
+                                  labels=['糖尿病患者', '正常人群'], 
+                                  autopct='%1.1f%%',
+                                  colors=['#ff9999','#66b3ff'])
+                            ax.set_title("患者预测结果分布")
+                            st.pyplot(fig)
+                        else:
+                            st.warning("没有有效的预测结果数据")
+                    except Exception as e:
+                        st.error(f"处理预测结果数据时出错：{str(e)}")
+                        st.info("正在尝试替代方法显示数据...")
+                        
+                        # 备用显示方法：使用简单的计数显示
                         try:
-                            numeric_data[col] = pd.to_numeric(numeric_data[col], errors='coerce')
-                        except:
-                            st.warning(f"列 '{col}' 转换为数值类型失败，将从相关性分析中排除")
-                            numeric_data = numeric_data.drop(col, axis=1)
-                    
-                    # 处理缺失值
-                    numeric_data = numeric_data.dropna()
-                    
-                    if len(numeric_data) > 0 and len(numeric_data.columns) > 1:
-                        # 计算相关性矩阵
-                        corr_matrix = numeric_data.corr()
-                        
-                        # 显示热力图
-                        fig, ax = plt.subplots(figsize=(10, 8))
-                        im = ax.imshow(corr_matrix, cmap='coolwarm')
-                        
-                        # 添加每个单元格的数值
-                        for i in range(len(corr_matrix.columns)):
-                            for j in range(len(corr_matrix.index)):
-                                text = ax.text(j, i, round(corr_matrix.iloc[i, j], 2),
-                                            ha="center", va="center", color="black")
-                        
-                        # 设置坐标轴
-                        ax.set_xticks(np.arange(len(corr_matrix.columns)))
-                        ax.set_yticks(np.arange(len(corr_matrix.index)))
-                        ax.set_xticklabels(corr_matrix.columns)
-                        ax.set_yticklabels(corr_matrix.index)
-                        
-                        # 旋转 x 轴标签
-                        plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
-                        
-                        ax.set_title("Feature Correlation Heatmap")
-                        fig.colorbar(im)
-                        fig.tight_layout()
-                        
-                        st.pyplot(fig)
-                    else:
-                        st.error("数据中没有足够的有效数值数据来计算相关性")
-                except Exception as e:
-                    st.error(f"相关性分析出错：{str(e)}")
-                    st.info("请检查数据格式和质量")
+                            # 直接计算0和1的数量
+                            counts = db_data['prediction'].value_counts().to_dict()
+                            diabetic_count = counts.get(1.0, 0) + counts.get(1, 0)
+                            normal_count = counts.get(0.0, 0) + counts.get(0, 0)
+                            
+                            # 显示数字而不是图表
+                            st.write(f"糖尿病患者: {diabetic_count}")
+                            st.write(f"正常人群: {normal_count}")
+                            
+                            # 尝试使用柱状图代替饼图
+                            fig, ax = plt.subplots(figsize=(6, 4))
+                            ax.bar(['正常人群', '糖尿病患者'], [normal_count, diabetic_count], color=['#66b3ff', '#ff9999'])
+                            ax.set_title("患者预测结果分布")
+                            ax.set_ylabel("数量")
+                            st.pyplot(fig)
+                        except Exception as e2:
+                            st.error(f"备用显示方法也失败：{str(e2)}")
                 
-            elif selected_tab == "比较分析":
-                st.subheader("糖尿病患者与正常人群特征比较")
-                
-                try:
-                    # 处理预测列
-                    db_data['prediction'] = pd.to_numeric(db_data['prediction'], errors='coerce')
-                    db_data = db_data.dropna(subset=['prediction'])
-                    db_data['prediction'] = db_data['prediction'].astype(int)
+                elif selected_tab == "特征分析":
+                    st.subheader("特征数据分布")
                     
-                    # 对比数据
-                    if 0 in db_data['prediction'].values and 1 in db_data['prediction'].values:
-                        # 计算每组的均值
-                        db_means = db_data.groupby('prediction').mean()
+                    # 选择要可视化的特征
+                    features = ["pregnancies", "glucose", "bloodpressure", "skinthickness", 
+                               "insulin", "bmi", "dpf", "age"]
+                    feature_names = ["怀孕次数", "血糖", "血压", "皮肤厚度", 
+                                    "胰岛素", "BMI", "糖尿病家族史", "年龄"]
+                    
+                    selected_feature = st.selectbox("选择特征", feature_names)
+                    feature_idx = feature_names.index(selected_feature)
+                    
+                    # 根据预测结果分组显示特征
+                    try:
+                        # 确保所选特征的数据是数值类型
+                        feature_col = features[feature_idx]
+                        db_data[feature_col] = pd.to_numeric(db_data[feature_col], errors='coerce')
                         
-                        # 分组条形图
-                        fig, ax = plt.subplots(figsize=(12, 6))
+                        # 移除缺失值
+                        valid_data = db_data.dropna(subset=[feature_col, 'prediction'])
                         
-                        # 创建柱状图
-                        features = [col for col in db_means.columns if col != 'prediction']
-                        x = np.arange(len(features))  # 特征位置
-                        width = 0.35  # 柱的宽度
+                        if len(valid_data) > 0:
+                            fig, ax = plt.subplots(figsize=(10, 6))
+                            
+                            # 计算糖尿病患者和正常人群的直方图
+                            diabetic_data = valid_data[valid_data['prediction'] == 1][feature_col]
+                            normal_data = valid_data[valid_data['prediction'] == 0][feature_col]
+                            
+                            # 确保两组都有数据
+                            if len(diabetic_data) > 0 and len(normal_data) > 0:
+                                # 直方图
+                                ax.hist(diabetic_data, alpha=0.5, label='Diabetic', bins=15, color='#ff9999')
+                                ax.hist(normal_data, alpha=0.5, label='Normal', bins=15, color='#66b3ff')
+                                
+                                ax.set_xlabel(feature_names[feature_idx])
+                                ax.set_ylabel('Frequency')
+                                ax.set_title(f'{feature_names[feature_idx]} Distribution')
+                                ax.legend()
+                                
+                                st.pyplot(fig)
+                            else:
+                                st.warning("没有足够的数据进行分组分析")
+                        else:
+                            st.warning(f"'{feature_names[feature_idx]}'特征中没有有效数据")
+                    except Exception as e:
+                        st.error(f"绘制特征分布时出错: {str(e)}")
+                        st.info("请确保数据库中有足够的有效记录")
+                
+                elif selected_tab == "相关性":
+                    st.subheader("特征相关性分析")
+                    
+                    try:
+                        # 复制数据，以免修改原始数据
+                        numeric_data = db_data.copy()
                         
-                        # 使用值而不是索引
-                        normal_values = db_means.loc[0].values
-                        diabetic_values = db_means.loc[1].values
+                        # 先把所有列转换为字符串以防止错误
+                        for col in numeric_data.columns:
+                            numeric_data[col] = numeric_data[col].astype(str)
                         
-                        normal = ax.bar(x - width/2, normal_values, width, label='Normal', color='#66b3ff')
-                        diabetic = ax.bar(x + width/2, diabetic_values, width, label='Diabetic', color='#ff9999')
+                        # 再转换为数值类型
+                        for col in numeric_data.columns:
+                            try:
+                                numeric_data[col] = pd.to_numeric(numeric_data[col], errors='coerce')
+                            except Exception as e:
+                                st.warning(f"列 '{col}' 转换为数值类型失败: {str(e)}，将从相关性分析中排除")
+                                numeric_data = numeric_data.drop(col, axis=1)
                         
-                        # 添加一些文本元素
-                        ax.set_title('Comparing Features: Diabetic vs Normal')
-                        ax.set_xticks(x)
-                        ax.set_xticklabels(features, rotation=45, ha='right')
-                        ax.legend()
+                        # 处理缺失值
+                        numeric_data = numeric_data.dropna()
                         
-                        # 自动调整布局
-                        fig.tight_layout()
+                        if len(numeric_data) > 0 and len(numeric_data.columns) > 1:
+                            # 计算相关性矩阵
+                            corr_matrix = numeric_data.corr()
+                            
+                            # 显示热力图
+                            fig, ax = plt.subplots(figsize=(10, 8))
+                            im = ax.imshow(corr_matrix, cmap='coolwarm')
+                            
+                            # 添加每个单元格的数值
+                            for i in range(len(corr_matrix.columns)):
+                                for j in range(len(corr_matrix.index)):
+                                    text = ax.text(j, i, round(corr_matrix.iloc[i, j], 2),
+                                                ha="center", va="center", color="black")
+                            
+                            # 设置坐标轴
+                            ax.set_xticks(np.arange(len(corr_matrix.columns)))
+                            ax.set_yticks(np.arange(len(corr_matrix.index)))
+                            ax.set_xticklabels(corr_matrix.columns)
+                            ax.set_yticklabels(corr_matrix.index)
+                            
+                            # 旋转 x 轴标签
+                            plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+                            
+                            ax.set_title("Feature Correlation Heatmap")
+                            fig.colorbar(im)
+                            fig.tight_layout()
+                            
+                            st.pyplot(fig)
+                        else:
+                            st.error("数据中没有足够的有效数值数据来计算相关性")
+                    except Exception as e:
+                        st.error(f"相关性分析出错：{str(e)}")
+                        st.info("请检查数据格式和质量")
+                    
+                elif selected_tab == "比较分析":
+                    st.subheader("糖尿病患者与正常人群特征比较")
+                    
+                    try:
+                        # 确保数据有0和1两种预测值
+                        has_normal = 0 in db_data['prediction'].values
+                        has_diabetic = 1 in db_data['prediction'].values
                         
-                        st.pyplot(fig)
-                    else:
-                        st.warning("数据中缺少正常人群或糖尿病患者的记录，无法进行比较")
-                except Exception as e:
-                    st.error(f"比较分析出错：{str(e)}")
-                    st.info("请确保有足够的两种类型的数据进行比较")
+                        if has_normal and has_diabetic:
+                            # 确保所有特征列都是数值类型
+                            features_data = db_data.copy()
+                            for col in features_data.columns:
+                                if col != 'prediction':
+                                    features_data[col] = pd.to_numeric(features_data[col], errors='coerce')
+                            
+                            # 移除有缺失值的行
+                            features_data = features_data.dropna()
+                            
+                            if len(features_data) > 0:
+                                # 计算每组的均值
+                                db_means = features_data.groupby('prediction').mean()
+                                
+                                # 分组条形图
+                                fig, ax = plt.subplots(figsize=(12, 6))
+                                
+                                # 创建柱状图
+                                features = [col for col in db_means.columns if col != 'prediction']
+                                x = np.arange(len(features))  # 特征位置
+                                width = 0.35  # 柱的宽度
+                                
+                                # 安全地获取值
+                                if 0 in db_means.index and 1 in db_means.index:
+                                    normal_values = db_means.loc[0].values
+                                    diabetic_values = db_means.loc[1].values
+                                    
+                                    normal = ax.bar(x - width/2, normal_values, width, label='Normal', color='#66b3ff')
+                                    diabetic = ax.bar(x + width/2, diabetic_values, width, label='Diabetic', color='#ff9999')
+                                    
+                                    # 添加一些文本元素
+                                    ax.set_title('Comparing Features: Diabetic vs Normal')
+                                    ax.set_xticks(x)
+                                    ax.set_xticklabels(features, rotation=45, ha='right')
+                                    ax.legend()
+                                    
+                                    # 自动调整布局
+                                    fig.tight_layout()
+                                    
+                                    st.pyplot(fig)
+                                else:
+                                    st.warning("分组计算后缺少某类数据，无法生成比较图表")
+                            else:
+                                st.warning("处理后没有足够的有效数据进行比较分析")
+                        else:
+                            st.warning("数据中缺少正常人群或糖尿病患者的记录，无法进行比较")
+                    except Exception as e:
+                        st.error(f"比较分析出错：{str(e)}")
+                        st.info("请确保有足够的两种类型的有效数据进行比较")
+            except Exception as e:
+                st.error(f"处理 prediction 列出错：{str(e)}")
+                st.info("将尝试简单显示数据统计信息...")
+                st.dataframe(db_data.describe())
         else:
             st.info("数据库中没有记录，请先进行一些预测")
     
