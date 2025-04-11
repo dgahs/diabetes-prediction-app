@@ -348,10 +348,10 @@ def app():
                         # 检查是否有数据
                         if diabetic_count > 0 or normal_count > 0:
                             ax.pie([diabetic_count, normal_count], 
-                                  labels=['糖尿病患者', '正常人群'], 
+                                  labels=['Diabetic', 'Normal'], 
                                   autopct='%1.1f%%',
                                   colors=['#ff9999','#66b3ff'])
-                            ax.set_title("患者预测结果分布")
+                            ax.set_title("Patient Prediction Distribution")
                             st.pyplot(fig)
                         else:
                             st.warning("没有有效的预测结果数据")
@@ -372,9 +372,9 @@ def app():
                             
                             # 尝试使用条形图代替饼图
                             fig, ax = plt.subplots(figsize=(6, 4))
-                            ax.bar(['正常人群', '糖尿病患者'], [normal_count, diabetic_count], color=['#66b3ff', '#ff9999'])
-                            ax.set_title("患者预测结果分布")
-                            ax.set_ylabel("数量")
+                            ax.bar(['Normal', 'Diabetic'], [normal_count, diabetic_count], color=['#66b3ff', '#ff9999'])
+                            ax.set_title("Patient Prediction Distribution")
+                            ax.set_ylabel("Count")
                             st.pyplot(fig)
                         except Exception as e2:
                             st.error(f"备用显示方法也失败：{str(e2)}")
@@ -410,12 +410,12 @@ def app():
                             # 确保两组都有数据
                             if len(diabetic_data) > 0 and len(normal_data) > 0:
                                 # 直方图
-                                ax.hist(diabetic_data, alpha=0.5, label='糖尿病患者', bins=15, color='#ff9999')
-                                ax.hist(normal_data, alpha=0.5, label='正常人群', bins=15, color='#66b3ff')
+                                ax.hist(diabetic_data, alpha=0.5, label='Diabetic', bins=15, color='#ff9999')
+                                ax.hist(normal_data, alpha=0.5, label='Normal', bins=15, color='#66b3ff')
                                 
                                 ax.set_xlabel(feature_names[feature_idx])
-                                ax.set_ylabel('频率')
-                                ax.set_title(f'{feature_names[feature_idx]} 分布情况')
+                                ax.set_ylabel('Frequency')
+                                ax.set_title(f'{feature_names[feature_idx]} Distribution')
                                 ax.legend()
                                 
                                 st.pyplot(fig)
@@ -491,10 +491,7 @@ def app():
                             ax.set_xticklabels(corr_matrix_cn.columns)
                             ax.set_yticklabels(corr_matrix_cn.index)
                             
-                            # 旋转 X 轴标签
-                            plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
-                            
-                            ax.set_title("特征相关性热力图")
+                            ax.set_title("Feature Correlation Heatmap")
                             fig.colorbar(im)
                             fig.tight_layout()
                             
@@ -554,11 +551,11 @@ def app():
                                     normal_values = db_means.loc[0].values
                                     diabetic_values = db_means.loc[1].values
                                     
-                                    normal = ax.bar(x - width/2, normal_values, width, label='正常人群', color='#66b3ff')
-                                    diabetic = ax.bar(x + width/2, diabetic_values, width, label='糖尿病患者', color='#ff9999')
+                                    normal = ax.bar(x - width/2, normal_values, width, label='Normal', color='#66b3ff')
+                                    diabetic = ax.bar(x + width/2, diabetic_values, width, label='Diabetic', color='#ff9999')
                                     
                                     # 添加文本元素
-                                    ax.set_title('糖尿病患者与正常人群特征对比')
+                                    ax.set_title('Feature Comparison Between Diabetic and Normal')
                                     ax.set_xticks(x)
                                     ax.set_xticklabels(feature_labels, rotation=45, ha='right')
                                     ax.legend()
@@ -614,12 +611,11 @@ def app():
                         
                         # 创建趋势图
                         fig, ax = plt.subplots(figsize=(10, 4))
-                        ax.plot(dates, predictions, marker='o', linestyle='-', color='#ff9999')
-                        ax.set_title(f"患者 {patient_id} 的糖尿病风险趋势")
-                        ax.set_xlabel("日期")
-                        ax.set_ylabel("预测结果 (1=糖尿病，0=正常)")
+                        ax.set_title(f"Patient {patient_id} Diabetes Risk Trend")
+                        ax.set_xlabel("Date")
+                        ax.set_ylabel("Prediction Result (1=Diabetic, 0=Normal)")
                         ax.set_yticks([0, 1])
-                        ax.set_yticklabels(['正常', '糖尿病'])
+                        ax.set_yticklabels(['Normal', 'Diabetic'])
                         plt.xticks(rotation=45)
                         plt.tight_layout()
                         
@@ -643,11 +639,11 @@ def app():
             if total_diabetic + total_normal > 0:
                 fig, ax = plt.subplots(figsize=(6, 6))
                 ax.pie([total_diabetic, total_normal], 
-                       labels=['糖尿病风险', '正常人群'], 
+                       labels=['Diabetes Risk', 'Normal'], 
                        autopct='%1.1f%%',
                        colors=['#ff9999','#66b3ff'],
                        explode=(0.1, 0))
-                ax.set_title("患者风险分布")
+                ax.set_title("Patient Risk Distribution")
                 st.pyplot(fig)
     
     # 统计分析页面
@@ -709,10 +705,10 @@ def app():
                 width = 0.35
                 
                 # 绘制条形图
-                ax.bar(x - width/2, norm_vals, width, label='正常人群', color='#66b3ff')
-                ax.bar(x + width/2, diab_vals, width, label='糖尿病患者', color='#ff9999')
+                ax.bar(x - width/2, norm_vals, width, label='Normal', color='#66b3ff')
+                ax.bar(x + width/2, diab_vals, width, label='Diabetic', color='#ff9999')
                 
-                ax.set_title('各组特征均值比较')
+                ax.set_title('Feature Mean Comparison')
                 ax.set_xticks(x)
                 ax.set_xticklabels(feature_names, rotation=45, ha='right')
                 ax.legend()
@@ -750,7 +746,7 @@ def app():
     
     # 添加作者信息
     st.sidebar.markdown("---")
-    st.sidebar.caption("© 2025 李卓阳 曲阜师范大学")
+    st.sidebar.caption("© 2025 李卓阳 曲阜师范大学  2067598048@qq.com")
 
 if __name__ == '__main__':
     app()
