@@ -10,8 +10,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 import matplotlib
 
-# 简化的中文字体设置
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans', 'Arial Unicode MS'] 
+# 简化的中文字体设置 改为英文
+plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial Unicode MS'] 
 plt.rcParams['axes.unicode_minus'] = False
 
 # 创建数据库连接和表
@@ -203,23 +203,14 @@ def get_xxdata_from_db():
 def app():
     # 设置页面标题和图标
     st.set_page_config(
-        page_title="糖尿病预测应用",
+        page_title="Diabetes Prediction Application",
         page_icon="🏥",
         layout="wide",
     )
     
-    # 尝试显示一些中文测试文本，验证字体是否工作
-    st.sidebar.markdown("### 字体测试")
-    fig, ax = plt.subplots(figsize=(3, 1))
-    ax.text(0.5, 0.5, '中文测试', ha='center', va='center', fontsize=14)
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    ax.axis('off')
-    st.sidebar.pyplot(fig)
-
     # 创建导航菜单
-    menu = ["预测", "历史记录", "数据可视化", "患者管理", "统计分析"]
-    choice = st.sidebar.selectbox("导航", menu)
+    menu = ["Prediction", "History", "Data Visualization", "Patient Management", "Statistical Analysis"]
+    choice = st.sidebar.selectbox("Navigation", menu)
 
     # 预测页面
     if choice == "预测":
@@ -468,15 +459,15 @@ def app():
                             
                             # 为相关性矩阵中的列和行重新指定中文名称
                             feature_names_map = {
-                                "pregnancies": "怀孕次数", 
-                                "glucose": "血糖", 
-                                "bloodpressure": "血压", 
-                                "skinthickness": "皮肤厚度",
-                                "insulin": "胰岛素", 
+                                "pregnancies": "Pregnancies",
+                                "glucose": "Glucose", 
+                                "bloodpressure": "Blood Pressure", 
+                                "skinthickness": "Skin Thickness",
+                                "insulin": "Insulin", 
                                 "bmi": "BMI", 
-                                "dpf": "糖尿病家族史", 
-                                "age": "年龄", 
-                                "prediction": "预测结果"
+                                "dpf": "Diabetes Pedigree Function", 
+                                "age": "Age", 
+                                "prediction": "Prediction"
                             }
                             
                             # 映射现有列名到中文名称
@@ -548,14 +539,14 @@ def app():
                                 
                                 # 为 x 轴创建中文标签
                                 feature_names_map = {
-                                    "pregnancies": "怀孕次数", 
-                                    "glucose": "血糖", 
-                                    "bloodpressure": "血压", 
-                                    "skinthickness": "皮肤厚度",
-                                    "insulin": "胰岛素", 
+                                    "pregnancies": "Pregnancies",
+                                    "glucose": "Glucose", 
+                                    "bloodpressure": "Blood Pressure", 
+                                    "skinthickness": "Skin Thickness",
+                                    "insulin": "Insulin", 
                                     "bmi": "BMI", 
-                                    "dpf": "糖尿病家族史", 
-                                    "age": "年龄"
+                                    "dpf": "Diabetes Pedigree Function", 
+                                    "age": "Age"
                                 }
                                 feature_labels = [feature_names_map.get(col, col) for col in features]
                                 
