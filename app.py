@@ -10,11 +10,113 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 import matplotlib
 import matplotlib.font_manager as fm
+import platform
+import os
+import sys
 
-# 设置 matplotlib 支持中文字体
-# 尝试多种可能的字体，从而增加兼容性
-matplotlib.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'WenQuanYi Micro Hei', 'DejaVu Sans', 'Arial Unicode MS']
-matplotlib.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
+# 强化中文字体设置
+def setup_chinese_fonts():
+    system = platform.system()
+    
+    # 检查是否是Streamlit Cloud环境
+    is_streamlit_cloud = os.environ.get('STREAMLIT_SHARING', '') or os.environ.get('STREAMLIT_SERVER_ADDRESS', '').startswith('streamlit.app')
+    
+    if system == 'Windows':
+        # Windows系统
+        try:
+            # 尝试添加Windows默认中文字体路径
+            font_paths = [
+                'C:\\Windows\\Fonts',
+                os.path.join(os.environ['WINDIR'], 'Fonts')
+            ]
+            for path in font_paths:
+                if os.path.exists(path):
+                    # 动态添加字体路径
+                    matplotlib.font_manager.fontManager.addfont(os.path.join(path, 'simhei.ttf'))
+                    matplotlib.font_manager.fontManager.addfont(os.path.join(path, 'msyh.ttf'))
+                    break
+            matplotlib.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei'] + matplotlib.rcParams['font.sans-serif']
+        except Exception as e:
+            st.sidebar.warning(f"Windows字体加载失败: {e}")
+    
+    elif system == 'Linux' or is_streamlit_cloud:
+        # Linux系统或Streamlit Cloud
+        # 尝试下载并使用开源中文字体
+        fonts_dir = os.path.join(os.path.dirname(__file__), 'fonts')
+        os.makedirs(fonts_dir, exist_ok=True)
+        
+        try:
+            # 检查是否已有字体文件
+            noto_font_path = os.path.join(fonts_dir, 'NotoSansSC-Regular.ttf')
+            if not os.path.exists(noto_font_path):
+                st.sidebar.info("正在下载中文字体，请稍等...")
+                # 下载Google Noto Sans字体
+                import urllib.request
+                urllib.request.urlretrieve(
+                    "https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf",
+                    noto_font_path
+                )
+                st.sidebar.success("字体下载完成!")
+            
+            # 添加字体路径
+            matplotlib.font_manager.fontManager.addfont(noto_font_path)
+            matplotlib.rcParams['font.sans-serif'] = ['Noto Sans SC', 'WenQuanYi Zen Hei'] + matplotlib.rcParams['font.sans-serif']
+        except Exception as e:
+            st.sidebar.warning(f"Linux字体加载失败: {e}")
+    
+    elif system == 'Darwin':
+        # macOS系统
+        try:
+            matplotlib.rcParams['font.sans-serif'] = ['PingFang SC', 'Heiti SC'] + matplotlib.rcParams['font.sans-serif']
+        except Exception as e:
+            st.sidebar.warning(f"macOS字体加载失败: {e}")
+    
+    # 通用备选设置
+    matplotlib.rcParams['font.sans-serif'] = matplotlib.rcParams['font.sans-serif'] + ['DejaVu Sans', 'Arial Unicode MS']
+    matplotlib.rcParams['axes.unicode_minus'] = False
+    
+    # 检查是否成功设置了中文字体
+    for font in matplotlib.rcParams['font.sans-serif']:
+        if font in [f.name for f in fm.fontManager.ttflist]:
+            st.sidebar.success(f"已启用中文字体: {font}")
+            return True
+    
+    # 如果没有找到合适的字体，使用内嵌模式
+    st.sidebar.warning("没有找到合适的中文字体，将使用图片模式显示中文")
+    return False
+
+# 用于在图表中使用中文的函数
+def plot_chinese_text(fig, text, x, y, **kwargs):
+    """使用Base64编码的图片来显示中文文本"""
+    from PIL import Image, ImageDraw, ImageFont
+    import io
+    import base64
+    
+    # 创建一个透明背景的图片
+    img = Image.new('RGBA', (400, 50), (255, 255, 255, 0))
+    draw = ImageDraw.Draw(img)
+    
+    # 使用默认字体
+    font = ImageFont.load_default()
+    
+    # 绘制文本
+    draw.text((10, 10), text, fill=(0, 0, 0, 255), font=font)
+    
+    # 保存为字节流
+    buffer = io.BytesIO()
+    img.save(buffer, format='PNG')
+    buffer.seek(0)
+    
+    # 转换为Base64编码
+    img_str = base64.b64encode(buffer.getvalue()).decode()
+    
+    # 在matplotlib图表中添加图片
+    ax = fig.add_axes([x, y, 0.1, 0.1])
+    ax.imshow(img)
+    ax.axis('off')
+
+# 在程序启动时设置字体
+setup_chinese_fonts()
 
 # 禁用matplotlib的全局警告
 st.set_option('deprecation.showPyplotGlobalUse', False)
@@ -212,6 +314,15 @@ def app():
         page_icon="🏥",
         layout="wide",
     )
+    
+    # 尝试显示一些中文测试文本，验证字体是否工作
+    st.sidebar.markdown("### 字体测试")
+    fig, ax = plt.subplots(figsize=(3, 1))
+    ax.text(0.5, 0.5, '中文测试', ha='center', va='center', fontsize=14)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.axis('off')
+    st.sidebar.pyplot(fig)
 
     # 创建导航菜单
     menu = ["预测", "历史记录", "数据可视化", "患者管理", "统计分析"]
@@ -624,11 +735,11 @@ def app():
                         # 创建趋势图
                         fig, ax = plt.subplots(figsize=(10, 4))
                         ax.plot(dates, predictions, marker='o', linestyle='-', color='#ff9999')
-                        ax.set_title(f"Patient {patient_id}'s Diabetes Risk Trend")
-                        ax.set_xlabel("Date")
-                        ax.set_ylabel("Prediction (1=Diabetic, 0=Normal)")
+                        ax.set_title(f"患者 {patient_id} 的糖尿病风险趋势")
+                        ax.set_xlabel("日期")
+                        ax.set_ylabel("预测结果 (1=糖尿病, 0=正常)")
                         ax.set_yticks([0, 1])
-                        ax.set_yticklabels(['Normal', 'Diabetic'])
+                        ax.set_yticklabels(['正常', '糖尿病'])
                         plt.xticks(rotation=45)
                         plt.tight_layout()
                         
