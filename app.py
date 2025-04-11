@@ -9,117 +9,10 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 import matplotlib
-import matplotlib.font_manager as fm
-import platform
-import os
-import sys
 
-# 强化中文字体设置
-def setup_chinese_fonts():
-    system = platform.system()
-    
-    # 检查是否是Streamlit Cloud环境
-    is_streamlit_cloud = os.environ.get('STREAMLIT_SHARING', '') or os.environ.get('STREAMLIT_SERVER_ADDRESS', '').startswith('streamlit.app')
-    
-    if system == 'Windows':
-        # Windows系统
-        try:
-            # 尝试添加Windows默认中文字体路径
-            font_paths = [
-                'C:\\Windows\\Fonts',
-                os.path.join(os.environ['WINDIR'], 'Fonts')
-            ]
-            for path in font_paths:
-                if os.path.exists(path):
-                    # 动态添加字体路径
-                    matplotlib.font_manager.fontManager.addfont(os.path.join(path, 'simhei.ttf'))
-                    matplotlib.font_manager.fontManager.addfont(os.path.join(path, 'msyh.ttf'))
-                    break
-            matplotlib.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei'] + matplotlib.rcParams['font.sans-serif']
-        except Exception as e:
-            st.sidebar.warning(f"Windows字体加载失败: {e}")
-    
-    elif system == 'Linux' or is_streamlit_cloud:
-        # Linux系统或Streamlit Cloud
-        # 尝试下载并使用开源中文字体
-        fonts_dir = os.path.join(os.path.dirname(__file__), 'fonts')
-        os.makedirs(fonts_dir, exist_ok=True)
-        
-        try:
-            # 检查是否已有字体文件
-            noto_font_path = os.path.join(fonts_dir, 'NotoSansSC-Regular.ttf')
-            if not os.path.exists(noto_font_path):
-                st.sidebar.info("正在下载中文字体，请稍等...")
-                # 下载Google Noto Sans字体
-                import urllib.request
-                urllib.request.urlretrieve(
-                    "https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf",
-                    noto_font_path
-                )
-                st.sidebar.success("字体下载完成!")
-            
-            # 添加字体路径
-            matplotlib.font_manager.fontManager.addfont(noto_font_path)
-            matplotlib.rcParams['font.sans-serif'] = ['Noto Sans SC', 'WenQuanYi Zen Hei'] + matplotlib.rcParams['font.sans-serif']
-        except Exception as e:
-            st.sidebar.warning(f"Linux字体加载失败: {e}")
-    
-    elif system == 'Darwin':
-        # macOS系统
-        try:
-            matplotlib.rcParams['font.sans-serif'] = ['PingFang SC', 'Heiti SC'] + matplotlib.rcParams['font.sans-serif']
-        except Exception as e:
-            st.sidebar.warning(f"macOS字体加载失败: {e}")
-    
-    # 通用备选设置
-    matplotlib.rcParams['font.sans-serif'] = matplotlib.rcParams['font.sans-serif'] + ['DejaVu Sans', 'Arial Unicode MS']
-    matplotlib.rcParams['axes.unicode_minus'] = False
-    
-    # 检查是否成功设置了中文字体
-    for font in matplotlib.rcParams['font.sans-serif']:
-        if font in [f.name for f in fm.fontManager.ttflist]:
-            st.sidebar.success(f"已启用中文字体: {font}")
-            return True
-    
-    # 如果没有找到合适的字体，使用内嵌模式
-    st.sidebar.warning("没有找到合适的中文字体，将使用图片模式显示中文")
-    return False
-
-# 用于在图表中使用中文的函数
-def plot_chinese_text(fig, text, x, y, **kwargs):
-    """使用Base64编码的图片来显示中文文本"""
-    from PIL import Image, ImageDraw, ImageFont
-    import io
-    import base64
-    
-    # 创建一个透明背景的图片
-    img = Image.new('RGBA', (400, 50), (255, 255, 255, 0))
-    draw = ImageDraw.Draw(img)
-    
-    # 使用默认字体
-    font = ImageFont.load_default()
-    
-    # 绘制文本
-    draw.text((10, 10), text, fill=(0, 0, 0, 255), font=font)
-    
-    # 保存为字节流
-    buffer = io.BytesIO()
-    img.save(buffer, format='PNG')
-    buffer.seek(0)
-    
-    # 转换为Base64编码
-    img_str = base64.b64encode(buffer.getvalue()).decode()
-    
-    # 在matplotlib图表中添加图片
-    ax = fig.add_axes([x, y, 0.1, 0.1])
-    ax.imshow(img)
-    ax.axis('off')
-
-# 在程序启动时设置字体
-setup_chinese_fonts()
-
-# 禁用matplotlib的全局警告
-st.set_option('deprecation.showPyplotGlobalUse', False)
+# 简化的中文字体设置
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans', 'Arial Unicode MS'] 
+plt.rcParams['axes.unicode_minus'] = False
 
 # 创建数据库连接和表
 def init_db():
@@ -303,9 +196,9 @@ def get_xxdata_from_db():
         conn.close()
         return df
     except Exception as e:
-        print(f"获取数据时出错: {str(e)}")
+        print(f"获取数据时出错：{str(e)}")
         conn.close()
-        return pd.DataFrame()  # 返回空DataFrame
+        return pd.DataFrame()  # 返回空 DataFrame
 
 def app():
     # 设置页面标题和图标
@@ -481,14 +374,14 @@ def app():
                         
                         # 备用显示方法：使用简单的计数显示
                         try:
-                            # 直接计算0和1的数量
+                            # 直接计算 0 和 1 的数量
                             counts = db_data['prediction'].value_counts().to_dict()
                             diabetic_count = counts.get(1.0, 0) + counts.get(1, 0)
                             normal_count = counts.get(0.0, 0) + counts.get(0, 0)
                             
                             # 显示数字而不是图表
-                            st.write(f"糖尿病患者: {diabetic_count}")
-                            st.write(f"正常人群: {normal_count}")
+                            st.write(f"糖尿病患者：{diabetic_count}")
+                            st.write(f"正常人群：{normal_count}")
                             
                             # 尝试使用柱状图代替饼图
                             fig, ax = plt.subplots(figsize=(6, 4))
@@ -544,7 +437,7 @@ def app():
                         else:
                             st.warning(f"'{feature_names[feature_idx]}'特征中没有有效数据")
                     except Exception as e:
-                        st.error(f"绘制特征分布时出错: {str(e)}")
+                        st.error(f"绘制特征分布时出错：{str(e)}")
                         st.info("请确保数据库中有足够的有效记录")
                 
                 elif selected_tab == "相关性":
@@ -563,7 +456,7 @@ def app():
                             try:
                                 numeric_data[col] = pd.to_numeric(numeric_data[col], errors='coerce')
                             except Exception as e:
-                                st.warning(f"列 '{col}' 转换为数值类型失败: {str(e)}，将从相关性分析中排除")
+                                st.warning(f"列 '{col}' 转换为数值类型失败：{str(e)}，将从相关性分析中排除")
                                 numeric_data = numeric_data.drop(col, axis=1)
                         
                         # 处理缺失值
@@ -629,7 +522,7 @@ def app():
                     st.subheader("糖尿病患者与正常人群特征比较")
                     
                     try:
-                        # 确保数据有0和1两种预测值
+                        # 确保数据有 0 和 1 两种预测值
                         has_normal = 0 in db_data['prediction'].values
                         has_diabetic = 1 in db_data['prediction'].values
                         
@@ -653,7 +546,7 @@ def app():
                                 # 创建柱状图
                                 features = [col for col in db_means.columns if col != 'prediction']
                                 
-                                # 为x轴创建中文标签
+                                # 为 x 轴创建中文标签
                                 feature_names_map = {
                                     "pregnancies": "怀孕次数", 
                                     "glucose": "血糖", 
@@ -737,7 +630,7 @@ def app():
                         ax.plot(dates, predictions, marker='o', linestyle='-', color='#ff9999')
                         ax.set_title(f"患者 {patient_id} 的糖尿病风险趋势")
                         ax.set_xlabel("日期")
-                        ax.set_ylabel("预测结果 (1=糖尿病, 0=正常)")
+                        ax.set_ylabel("预测结果 (1=糖尿病，0=正常)")
                         ax.set_yticks([0, 1])
                         ax.set_yticklabels(['正常', '糖尿病'])
                         plt.xticks(rotation=45)
